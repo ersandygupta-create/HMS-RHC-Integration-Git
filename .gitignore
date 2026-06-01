@@ -1,0 +1,10 @@
+*.app
+*.flf
+TestResults.xml
+rad.json
+.output
+app/.vscode/rad.json
+app/.vscode/.alcache
+
+test/.vscode/rad.json
+test/.vscode/.alcache
