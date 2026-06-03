@@ -57,6 +57,10 @@ report 50016 "EDC Vendor - Payment Advice"
                 {
                     //IncludeCaption = true;
                 }
+                column(DocDate_VendLedgEntry; Format("Vendor Ledger Entry"."Document Date"))
+                {
+                    //IncludeCaption = true;
+                }
                 column(VenBankAccountNo; VenBankAccountNo)
                 {
                 }
@@ -214,10 +218,7 @@ report 50016 "EDC Vendor - Payment Advice"
                         DataItemLinkReference = DetailedVendorLedgEntry1;
                         DataItemTableView = SORTING("Entry No.");
                         RequestFilterFields = "Original Amt. (LCY)";
-                        column(PostingDate_VendLedgEntry1; Format("Posting Date"))
-                        {
-                        }
-                        column(DocDate_VendLedgEntry; format(vendledgentry1."Document Date"))
+                        column(PostingDate_VendLedgEntry1; Format("Document Date"))
                         {
                         }
                         column(DocType_VendLedgEntry1; "Document Type")
@@ -263,7 +264,7 @@ report 50016 "EDC Vendor - Payment Advice"
                         trigger OnAfterGetRecord()
 
                         begin
-                            Docdate := VLE."Document Date";
+                            Docdate := "Vendor Ledger Entry"."Document Date";
 
                             if "Entry No." = "Vendor Ledger Entry"."Entry No." then
                                 CurrReport.Skip;

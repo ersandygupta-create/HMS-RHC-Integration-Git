@@ -11,7 +11,7 @@
       <am:Name>MSRB</am:Name>
       <am:Version>15.1.30001.02</am:Version>
     </am:UpdatedBy>
-    <am:LastModifiedTimestamp>2026-04-30T07:01:37.9179742Z</am:LastModifiedTimestamp>
+    <am:LastModifiedTimestamp>2026-06-03T13:02:30.7909630Z</am:LastModifiedTimestamp>
   </am:AuthoringMetadata>
   <AutoRefresh>0</AutoRefresh>
   <DataSources>
@@ -401,8 +401,7 @@ First(Fields!TotalPayment.Value), 1)</Hidden>
                                       </TablixCell>
                                       <TablixCell>
                                         <CellContents>
-                                          <Textbox Name="Textbox20">
-                                            <rd:DefaultName>Textbox20</rd:DefaultName>
+                                          <Textbox Name="textbox99">
                                             <CanGrow>true</CanGrow>
                                             <KeepTogether>true</KeepTogether>
                                             <Paragraphs>
@@ -423,12 +422,9 @@ First(Fields!TotalPayment.Value), 1)</Hidden>
                                                 </Style>
                                               </Paragraph>
                                             </Paragraphs>
+                                            <ZIndex>32</ZIndex>
                                             <Style>
-                                              <Border>
-                                                <Style>None</Style>
-                                              </Border>
                                               <VerticalAlign>Bottom</VerticalAlign>
-                                              <PaddingLeft>5pt</PaddingLeft>
                                               <PaddingRight>5pt</PaddingRight>
                                             </Style>
                                           </Textbox>
@@ -1281,19 +1277,19 @@ First(Fields!TotalPayment.Value), 1)</Hidden>
                                     <TablixCells>
                                       <TablixCell>
                                         <CellContents>
-                                          <Textbox Name="textbox11">
+                                          <Textbox Name="DocDate_VendLedgEntry">
+                                            <rd:DefaultName>DocDate_VendLedgEntry</rd:DefaultName>
                                             <CanGrow>true</CanGrow>
                                             <KeepTogether>true</KeepTogether>
                                             <Paragraphs>
                                               <Paragraph>
                                                 <TextRuns>
                                                   <TextRun>
-                                                    <Value>=Fields!PostingDate_VendLedgEntry1.Value</Value>
+                                                    <Value>=Fields!DocDate_VendLedgEntry.Value</Value>
                                                     <Style>
                                                       <FontStyle>Normal</FontStyle>
                                                       <FontFamily>Segoe UI</FontFamily>
                                                       <FontSize>8pt</FontSize>
-                                                      <Format>d</Format>
                                                     </Style>
                                                   </TextRun>
                                                 </TextRuns>
@@ -1302,7 +1298,6 @@ First(Fields!TotalPayment.Value), 1)</Hidden>
                                                 </Style>
                                               </Paragraph>
                                             </Paragraphs>
-                                            <ZIndex>7</ZIndex>
                                             <Style>
                                               <VerticalAlign>Top</VerticalAlign>
                                               <PaddingRight>5pt</PaddingRight>
@@ -1402,20 +1397,19 @@ First(Fields!TotalPayment.Value), 1)</Hidden>
                                       </TablixCell>
                                       <TablixCell>
                                         <CellContents>
-                                          <rd:Selected>true</rd:Selected>
-                                          <Textbox Name="DocDate_VendLedgEntry">
-                                            <rd:DefaultName>DocDate_VendLedgEntry</rd:DefaultName>
+                                          <Textbox Name="textbox11">
                                             <CanGrow>true</CanGrow>
                                             <KeepTogether>true</KeepTogether>
                                             <Paragraphs>
                                               <Paragraph>
                                                 <TextRuns>
                                                   <TextRun>
-                                                    <Value>=Fields!DocDate_VendLedgEntry.Value</Value>
+                                                    <Value>=Fields!PostingDate_VendLedgEntry1.Value</Value>
                                                     <Style>
                                                       <FontStyle>Normal</FontStyle>
                                                       <FontFamily>Segoe UI</FontFamily>
                                                       <FontSize>8pt</FontSize>
+                                                      <Format>d</Format>
                                                     </Style>
                                                   </TextRun>
                                                 </TextRuns>
@@ -1424,9 +1418,9 @@ First(Fields!TotalPayment.Value), 1)</Hidden>
                                                 </Style>
                                               </Paragraph>
                                             </Paragraphs>
+                                            <ZIndex>7</ZIndex>
                                             <Style>
                                               <VerticalAlign>Top</VerticalAlign>
-                                              <PaddingLeft>5pt</PaddingLeft>
                                               <PaddingRight>5pt</PaddingRight>
                                             </Style>
                                           </Textbox>
@@ -4409,6 +4403,9 @@ End Function</Code>
         <Field Name="VendNo_VendLedgEntry">
           <DataField>VendNo_VendLedgEntry</DataField>
         </Field>
+        <Field Name="DocDate_VendLedgEntry">
+          <DataField>DocDate_VendLedgEntry</DataField>
+        </Field>
         <Field Name="VenBankAccountNo">
           <DataField>VenBankAccountNo</DataField>
         </Field>
@@ -4555,9 +4552,6 @@ End Function</Code>
         </Field>
         <Field Name="PostingDate_VendLedgEntry1">
           <DataField>PostingDate_VendLedgEntry1</DataField>
-        </Field>
-        <Field Name="DocDate_VendLedgEntry">
-          <DataField>DocDate_VendLedgEntry</DataField>
         </Field>
         <Field Name="DocType_VendLedgEntry1">
           <DataField>DocType_VendLedgEntry1</DataField>
