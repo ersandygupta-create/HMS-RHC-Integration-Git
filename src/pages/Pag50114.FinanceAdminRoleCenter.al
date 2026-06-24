@@ -1129,30 +1129,7 @@ page 50114 "EDC Finance Admin Role Center"
                     RunObject = Codeunit "Run Template Retained Earn.";
                     ToolTip = 'Open a spreadsheet that shows your company''s changes in retained earnings based on net income from the other financial statements.';
                 }
-                action(ExcelTemplateTrialBalance)
-                {
-                    ApplicationArea = Basic, Suite;
-                    Caption = 'Trial Balance';
-                    Image = "Report";
-                    RunObject = Codeunit "Run Template Trial Balance";
-                    ToolTip = 'Open a spreadsheet that shows a summary trial balance by account.';
-                }
-                action(ExcelTemplateAgedAccPay)
-                {
-                    ApplicationArea = Basic, Suite;
-                    Caption = 'Aged Accounts Payable';
-                    Image = "Report";
-                    RunObject = Codeunit "Run Template Aged Acc. Pay.";
-                    ToolTip = 'Open a spreadsheet that shows a list of aged remaining balances for each vendor by period.';
-                }
-                action(ExcelTemplateAgedAccRec)
-                {
-                    ApplicationArea = Basic, Suite;
-                    Caption = 'Aged Accounts Receivable';
-                    Image = "Report";
-                    RunObject = Codeunit "Run Template Aged Acc. Rec.";
-                    ToolTip = 'Open a spreadsheet that shows when customer payments are due or overdue by period.';
-                }
+
             }
         }
     }
