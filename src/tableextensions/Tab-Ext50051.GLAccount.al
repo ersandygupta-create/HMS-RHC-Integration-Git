@@ -42,9 +42,13 @@ tableextension 50051 "GL Account" extends "G/L Account"
 
     }
     trigger OnBeforeRename()
+    var
+        PurchPayablesSetup: Record "Purchases & Payables Setup";
     begin
-        if (Rec."No." <> xRec."No.") and (xRec."No." <> '') then
-            Error('You cannot modify the GL Account No.');
+        PurchPayablesSetup.Get();
+        if PurchPayablesSetup."Master Edit" then
+            if (Rec."No." <> xRec."No.") and (xRec."No." <> '') then
+                Error('You cannot modify the GL Account No.');
     end;
 
 }

@@ -57,8 +57,12 @@ tableextension 50001 "EDC HIS Customer Ext" extends Customer
 
     }
     trigger OnBeforeRename()
+    var
+        PurchPayablesSetup: Record "Purchases & Payables Setup";
     begin
-        if (Rec."No." <> xRec."No.") and (xRec."No." <> '') then
-            Error('You cannot modify the Customer No.');
+        PurchPayablesSetup.Get();
+        if PurchPayablesSetup."Master Edit" then
+            if (Rec."No." <> xRec."No.") and (xRec."No." <> '') then
+                Error('You cannot modify the Customer No.');
     end;
 }

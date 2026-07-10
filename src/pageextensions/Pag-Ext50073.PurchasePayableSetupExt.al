@@ -22,6 +22,11 @@ pageextension 50073 "Purch & Payable Setup" extends "Purchases & Payables Setup"
                 Caption = 'Enable Advance Settlement';
                 ToolTip = 'Enable or Disable Advance Settlement functionality';
             }
+            field("Master Edit"; Rec."Master Edit")
+            {
+                ApplicationArea = All;
+                ToolTip = 'Enable or Disable Master Edit functionality';
+            }
         }
     }
 }

@@ -17,6 +17,11 @@ tableextension 50065 "Purch & Payable Setup" extends "Purchases & Payables Setup
             Caption = 'Enable Advance Settlement';
             DataClassification = CustomerContent;
         }
+        field(50003; "Master Edit"; Boolean)
+        {
+            Caption = 'Master Edit';
+            DataClassification = CustomerContent;
+        }
 
     }
 }

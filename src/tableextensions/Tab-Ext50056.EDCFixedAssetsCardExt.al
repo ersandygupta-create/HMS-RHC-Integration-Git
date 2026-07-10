@@ -13,8 +13,12 @@ tableextension 50056 "EDC HIS Fixed Asset" extends "Fixed Asset"
         }
     }
     trigger OnBeforeRename()
+    var
+        PurchPayablesSetup: Record "Purchases & Payables Setup";
     begin
-        if (Rec."No." <> xRec."No.") and (xRec."No." <> '') then
-            Error('You cannot modify the FA No.');
+        PurchPayablesSetup.Get();
+        if PurchPayablesSetup."Master Edit" then
+            if (Rec."No." <> xRec."No.") and (xRec."No." <> '') then
+                Error('You cannot modify the FA No.');
     end;
 }
