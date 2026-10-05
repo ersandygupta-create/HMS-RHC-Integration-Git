@@ -39,8 +39,47 @@ pageextension 50061 "EDC HIS Purchase Invoice Card" extends "Purchase Invoice"
                     CheckAdvance(Rec);
                 end;
             }
+            action(ValidateRCM)
+            {
+                ApplicationArea = All;
+                ToolTip = 'Remoce RCM Enable';
+                image = Redo;
+                Caption = 'Correct RCM Enable';
+                Promoted = true;
+                trigger OnAction()
+                begin
+                    RemoveRCM(rec);
+                end;
+            }
         }
     }
+
+    local procedure RemoveRCM(PurchaseHeader: Record "Purchase Header")
+    var
+        PurchaseLine: Record "Purchase Line";
+        prevHSN: Code[20];
+        PurchaseHeaderRec: Record "Purchase Header";
+
+    begin
+        PurchaseLine.Reset();
+        PurchaseLine.SetRange("Document No.", PurchaseHeader."No.");
+        PurchaseLine.SetRange("GST Reverse Charge", true);
+        if PurchaseLine.FindSet() then
+            repeat
+                prevHSN := PurchaseLine."HSN/SAC Code";
+                PurchaseLine."GST Reverse Charge" := false;
+                PurchaseLine.Validate("HSN/SAC Code", prevHSN);
+                PurchaseLine.Modify(true);
+            until PurchaseLine.Next() = 0;
+        Message('RCM enables false completed.');
+
+        PurchaseHeaderRec := Rec;
+        if (PurchaseHeaderRec."Document Date" > PurchaseHeaderRec."Posting Date") then begin
+            PurchaseHeaderRec."Document Date" := PurchaseHeaderRec."Posting Date";
+            PurchaseHeaderRec.Modify(true);
+        end;
+
+    end;
 
     local procedure CheckAdvance(PurchaseHeader: Record "Purchase Header")
     var
