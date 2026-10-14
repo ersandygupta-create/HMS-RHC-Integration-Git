@@ -4,11 +4,7 @@
     "publisher":  "Edhate",
     "brief":  "HIS Integration",
     "description":  "HIS Integration Management",
-<<<<<<< HEAD
-    "version":  "1.0.6.54",
-=======
     "version":  "1.0.6.57",
->>>>>>> 20df69ba299044d129fd805519229fc0a3ae216b
     "privacyStatement":  "https://edhateconsulting.com",
     "EULA":  "https://edhateconsulting.com",
     "help":  "https://edhateconsulting.com",
