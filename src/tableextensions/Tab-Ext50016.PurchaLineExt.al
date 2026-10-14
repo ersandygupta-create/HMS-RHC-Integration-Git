@@ -26,6 +26,7 @@ tableextension 50016 "EDC HIS Purcha Line" extends "Purchase Line"
         }
 
 
+
     }
 
 }
