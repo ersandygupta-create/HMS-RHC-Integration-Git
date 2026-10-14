@@ -121,9 +121,11 @@ report 50017 "Account Ledger Report Excel"
         FromDate := "G/L Entry".GetRangeMin("Posting Date");
         ToDate := "G/L Entry".GetRangeMax("Posting Date");
 
-        GLBalances := CalculateGLBalances(GLNo, FromDate, ToDate);
-        OpeningBal := GLBalances.Get('OpeningBalance');
-        ClosingBal := GLBalances.Get('ClosingBalance');
+        GLBalances := CalculateGLBalances(
+    "G/L Entry", FromDate, ToDate);
+
+        GLBalances.Get('OpeningBalance', OpeningBal);
+        GLBalances.Get('ClosingBalance', ClosingBal);
 
         ExcelBuffer_gRecTmp.NewRow;
         ExcelBuffer_gRecTmp.AddColumn('Account Ledger Report', false, '', true, false, true, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
@@ -242,7 +244,11 @@ report 50017 "Account Ledger Report Excel"
         ExcelBuffer_gRecTmp.OpenExcel();
     end;
 
-    procedure CalculateGLBalances(GLNo: Code[20]; StartDate: Date; EndDate: Date): Dictionary of [Text, Decimal]
+
+    procedure CalculateGLBalances(
+        SourceGLEntry: Record "G/L Entry";
+        StartDate: Date;
+        EndDate: Date): Dictionary of [Text, Decimal]
     var
         GLEntry: Record "G/L Entry";
         OpeningBal: Decimal;
@@ -250,28 +256,33 @@ report 50017 "Account Ledger Report Excel"
         ClosingBal: Decimal;
         Result: Dictionary of [Text, Decimal];
     begin
-        // 🔹 Opening Balance (before start date)
-        GLEntry.Reset();
-        GLEntry.SetRange("G/L Account No.", GLNo);
-        GLEntry.SetFilter("Posting Date", '..%1', CalcDate('<-1D>', StartDate)); // Before Start Date
+        Clear(OpeningBal);
+        Clear(PeriodBal);
+        Clear(ClosingBal);
+        Clear(Result);
+
+        // Opening Balance: entries before the selected Start Date.
+        // Preserve all report filters except the Posting Date filter.
+        GLEntry.CopyFilters(SourceGLEntry);
+        GLEntry.SetRange("Posting Date", 0D, CalcDate('<-1D>', StartDate));
+
         if GLEntry.FindSet() then
             repeat
                 OpeningBal += GLEntry.Amount;
             until GLEntry.Next() = 0;
 
-        // 🔹 Period Transactions (within start and end date)
-        GLEntry.Reset();
-        GLEntry.SetRange("G/L Account No.", GLNo);
+        // Period Activity: entries within the selected date range.
+        GLEntry.CopyFilters(SourceGLEntry);
         GLEntry.SetRange("Posting Date", StartDate, EndDate);
+
         if GLEntry.FindSet() then
             repeat
                 PeriodBal += GLEntry.Amount;
             until GLEntry.Next() = 0;
 
-        // 🔹 Closing Balance
+        // Closing Balance = Opening Balance + Period Activity.
         ClosingBal := OpeningBal + PeriodBal;
 
-        // 🔹 Return Results in Dictionary
         Result.Add('OpeningBalance', OpeningBal);
         Result.Add('PeriodBalance', PeriodBal);
         Result.Add('ClosingBalance', ClosingBal);
