@@ -142,10 +142,16 @@ report 50017 "Account Ledger Report Excel"
         ExcelBuffer_gRecTmp.NewRow;
         ExcelBuffer_gRecTmp.AddColumn('Period: ' + PeriodTxt, false, '', true, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
 
+        // Opening Balance - Column A label, Column B amount
         ExcelBuffer_gRecTmp.NewRow;
-        ExcelBuffer_gRecTmp.AddColumn(StrSubstNo('Opening Balance: %1', Format(OpeningBal)), false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
+        ExcelBuffer_gRecTmp.AddColumn('Opening Balance:', false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
+        ExcelBuffer_gRecTmp.AddColumn(OpeningBal, false, '', false, false, false, '#,##0.00', ExcelBuffer_gRecTmp."Cell Type"::Number);
+
+        // Closing Balance - Column A label, Column B amount
         ExcelBuffer_gRecTmp.NewRow;
-        ExcelBuffer_gRecTmp.AddColumn(StrSubstNo('Closing Balance: %1', Format(ClosingBal)), false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
+        ExcelBuffer_gRecTmp.AddColumn('Closing Balance:', false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
+        ExcelBuffer_gRecTmp.AddColumn(ClosingBal, false, '', false, false, false, '#,##0.00', ExcelBuffer_gRecTmp."Cell Type"::Number);
+
         ExcelBuffer_gRecTmp.NewRow;
 
         ExcelBuffer_gRecTmp.NewRow;
