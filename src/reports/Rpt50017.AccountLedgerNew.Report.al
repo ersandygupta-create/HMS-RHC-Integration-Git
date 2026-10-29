@@ -1,3 +1,4 @@
+
 report 50017 "Account Ledger Report Excel"
 {
     Caption = 'Account Ledger Report';
@@ -9,33 +10,34 @@ report 50017 "Account Ledger Report Excel"
     {
         dataitem("G/L Entry"; "G/L Entry")
         {
-            DataItemTableView = SORTING("G/L Account No.", "Posting Date");
+            DataItemTableView = sorting("G/L Account No.", "Posting Date");
             RequestFilterFields = "Posting Date", "G/L Account No.";
-
-            trigger OnAfterGetRecord()
-            var
-            begin
-
-                MakeExcelDataBody_lFnc;
-            end;
 
             trigger OnPreDataItem()
             begin
                 TotalRecord_gInt := Count;
+            end;
+
+            trigger OnAfterGetRecord()
+            begin
+                // Calculate net amount for each filtered entry
+                PrintedClosingBal +=
+                    "G/L Entry"."Debit Amount" -
+                    "G/L Entry"."Credit Amount";
+
+                MakeExcelDataBody_lFnc;
             end;
         }
     }
 
     requestpage
     {
-
         layout
         {
             area(content)
             {
             }
         }
-
         actions
         {
         }
@@ -45,47 +47,61 @@ report 50017 "Account Ledger Report Excel"
     {
     }
 
-    trigger OnPostReport()
-    begin
-        Window_gDlg.Close;
-        CreateExcelBook_lFnc;
-    end;
-
     trigger OnInitReport()
     begin
         Clear(ExcelBuffer_gRecTmp);
+        Clear(PrintedClosingBal);
     end;
 
     trigger OnPreReport()
-
     begin
         Clear(ExcelBuffer_gRecTmp);
         ExcelBuffer_gRecTmp.DeleteAll();
-        Commit();
-        GLSetUp_gRec.Get;
+
+        Clear(OpeningBal);
+        Clear(ClosingBal);
+        Clear(PrintedClosingBal);
+
+        GLSetUp_gRec.Get();
+
         if "G/L Entry".GetFilter("Posting Date") = '' then
             Error(Text50002_gCtx);
-        MakeExcelDataInfo_lFnc;
+
+        // Calculate balances before writing the header
+        CalculateFilteredBalances();
+
+        MakeExcelDataInfo_lFnc();
+
         Window_gDlg.Open(Text011 + Text012 + Text013);
+    end;
+
+    trigger OnPostReport()
+    begin
+        Window_gDlg.Close();
+        CreateExcelBook_lFnc();
     end;
 
     var
         PostedLineNaration_gRec: Record "Posted Narration";
         ExcelBuffer_gRecTmp: Record "Excel Buffer" temporary;
+
         Text50001_gCtx: Label 'Account Ledger';
-        Text50002_gCtx: Label 'Please select date filer.';
+        Text50002_gCtx: Label 'Please select date filter.';
         Text005: Label 'Company Name';
         Text006: Label 'Report No.';
         Text007: Label 'Report Name';
         Text008: Label 'User ID';
         Text009: Label 'Date';
+
         GLAccount_gRec: Record "G/L Account";
         RunningBal_gDec: Decimal;
         Narration_gTxt: Text;
         PreGLCode_gCod: Code[20];
+
         Text011: Label 'Export Data...\';
         Text012: Label 'Entry No. #1############\';
         Text013: Label '@2@@@@@@@@@@@@@@@@@';
+
         Window_gDlg: Dialog;
         TotalRecord_gInt: Integer;
         CurrRecord_gInt: Integer;
@@ -94,13 +110,74 @@ report 50017 "Account Ledger Report Excel"
         txtComment: Text;
         DimValue: Record "Dimension Value";
         DeptName: Text[50];
+
         OpeningBal: Decimal;
         ClosingBal: Decimal;
+        PrintedClosingBal: Decimal;
 
     local procedure MakeExcelDataInfo_lFnc()
     begin
+        MakeExcelDataHeader_lFnc();
+    end;
 
-        MakeExcelDataHeader_lFnc;
+    local procedure CalculateFilteredBalances()
+    var
+        GLEntry: Record "G/L Entry";
+        FromDate: Date;
+        ToDate: Date;
+        GLNoFilter: Text;
+        UnitFilter: Text;
+        DeptFilter: Text;
+        PeriodBal: Decimal;
+    begin
+        // Read the report filters
+        FromDate := "G/L Entry".GetRangeMin("Posting Date");
+        ToDate := "G/L Entry".GetRangeMax("Posting Date");
+
+        GLNoFilter := "G/L Entry".GetFilter("G/L Account No.");
+        UnitFilter := "G/L Entry".GetFilter("Global Dimension 1 Code");
+        DeptFilter := "G/L Entry".GetFilter("Global Dimension 2 Code");
+
+        // Opening balance: before the selected start date
+        Clear(OpeningBal);
+
+        // Opening balance: all entries strictly before the start date.
+        GLEntry.Reset();
+
+        if GLNoFilter <> '' then
+            GLEntry.SetFilter("G/L Account No.", GLNoFilter);
+
+        if UnitFilter <> '' then
+            GLEntry.SetFilter("Global Dimension 1 Code", UnitFilter);
+
+        if DeptFilter <> '' then
+            GLEntry.SetFilter("Global Dimension 2 Code", DeptFilter);
+
+        GLEntry.SetFilter("Posting Date", '<%1', FromDate);
+        GLEntry.CalcSums(Amount);
+
+        OpeningBal := GLEntry.Amount;
+
+        // Closing balance = net total of entries in the selected period
+        GLEntry.Reset();
+
+        if GLNoFilter <> '' then
+            GLEntry.SetFilter("G/L Account No.", GLNoFilter);
+
+        if UnitFilter <> '' then
+            GLEntry.SetFilter("Global Dimension 1 Code", UnitFilter);
+
+        if DeptFilter <> '' then
+            GLEntry.SetFilter("Global Dimension 2 Code", DeptFilter);
+
+        GLEntry.SetRange("Posting Date", FromDate, ToDate);
+        GLEntry.CalcSums("Debit Amount", "Credit Amount");
+
+        ClosingBal :=
+            GLEntry."Debit Amount" - GLEntry."Credit Amount";
+
+        // Use this value for the highlighted closing balance cell
+        PrintedClosingBal := ClosingBal;
     end;
 
     local procedure MakeExcelDataHeader_lFnc()
@@ -109,52 +186,63 @@ report 50017 "Account Ledger Report Excel"
         GLNo: Code[20];
         UnitCode: Code[20];
         PeriodTxt: Text[50];
-        FromDate: Date;
-        ToDate: Date;
-        GLBalances: Dictionary of [Text, Decimal];
     begin
-
         GLNo := "G/L Entry".GetFilter("G/L Account No.");
         UnitCode := "G/L Entry".GetFilter("Global Dimension 1 Code");
         PeriodTxt := "G/L Entry".GetFilter("Posting Date");
 
-        FromDate := "G/L Entry".GetRangeMin("Posting Date");
-        ToDate := "G/L Entry".GetRangeMax("Posting Date");
+        ExcelBuffer_gRecTmp.NewRow();
+        ExcelBuffer_gRecTmp.AddColumn(
+            'Account Ledger Report', false, '', true, false, true, '',
+            ExcelBuffer_gRecTmp."Cell Type"::Text);
 
-        GLBalances := CalculateGLBalances(
-    "G/L Entry", FromDate, ToDate);
-
-        GLBalances.Get('OpeningBalance', OpeningBal);
-        GLBalances.Get('ClosingBalance', ClosingBal);
-
-        ExcelBuffer_gRecTmp.NewRow;
-        ExcelBuffer_gRecTmp.AddColumn('Account Ledger Report', false, '', true, false, true, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
-
-        ExcelBuffer_gRecTmp.NewRow;
+        ExcelBuffer_gRecTmp.NewRow();
         if GLNo <> '' then begin
             if GLAccount.Get(GLNo) then
-                ExcelBuffer_gRecTmp.AddColumn('GL Name: ' + GLAccount.Name, false, '', true, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
+                ExcelBuffer_gRecTmp.AddColumn(
+                    'GL Name: ' + GLAccount.Name,
+                    false, '', true, false, false, '',
+                    ExcelBuffer_gRecTmp."Cell Type"::Text);
         end;
 
-        ExcelBuffer_gRecTmp.NewRow;
-        ExcelBuffer_gRecTmp.AddColumn('Unit: ' + UnitCode, false, '', true, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
+        ExcelBuffer_gRecTmp.NewRow();
+        ExcelBuffer_gRecTmp.AddColumn(
+            'Unit: ' + UnitCode,
+            false, '', true, false, false, '',
+            ExcelBuffer_gRecTmp."Cell Type"::Text);
 
-        ExcelBuffer_gRecTmp.NewRow;
-        ExcelBuffer_gRecTmp.AddColumn('Period: ' + PeriodTxt, false, '', true, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
+        ExcelBuffer_gRecTmp.NewRow();
+        ExcelBuffer_gRecTmp.AddColumn(
+            'Period: ' + PeriodTxt,
+            false, '', true, false, false, '',
+            ExcelBuffer_gRecTmp."Cell Type"::Text);
 
-        // Opening Balance - Column A label, Column B amount
-        ExcelBuffer_gRecTmp.NewRow;
-        ExcelBuffer_gRecTmp.AddColumn('Opening Balance:', false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
-        ExcelBuffer_gRecTmp.AddColumn(OpeningBal, false, '', false, false, false, '#,##0.00', ExcelBuffer_gRecTmp."Cell Type"::Number);
+        // Opening Balance
+        ExcelBuffer_gRecTmp.NewRow();
+        ExcelBuffer_gRecTmp.AddColumn(
+            'Opening Balance:',
+            false, '', false, false, false, '',
+            ExcelBuffer_gRecTmp."Cell Type"::Text);
+        ExcelBuffer_gRecTmp.AddColumn(
+            OpeningBal,
+            false, '', false, false, false, '#,##0.00',
+            ExcelBuffer_gRecTmp."Cell Type"::Number);
 
-        // Closing Balance - Column A label, Column B amount
-        ExcelBuffer_gRecTmp.NewRow;
-        ExcelBuffer_gRecTmp.AddColumn('Closing Balance:', false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
-        ExcelBuffer_gRecTmp.AddColumn(ClosingBal, false, '', false, false, false, '#,##0.00', ExcelBuffer_gRecTmp."Cell Type"::Number);
+        // Closing Balance - highlighted position at the top
+        ExcelBuffer_gRecTmp.NewRow();
+        ExcelBuffer_gRecTmp.AddColumn(
+            'Closing Balance:',
+            false, '', true, false, false, '',
+            ExcelBuffer_gRecTmp."Cell Type"::Text);
+        ExcelBuffer_gRecTmp.AddColumn(
+            ClosingBal,
+            false, '', true, false, false, '#,##0.00',
+            ExcelBuffer_gRecTmp."Cell Type"::Number);
 
-        ExcelBuffer_gRecTmp.NewRow;
+        ExcelBuffer_gRecTmp.NewRow();
 
-        ExcelBuffer_gRecTmp.NewRow;
+        // Column headings
+        ExcelBuffer_gRecTmp.NewRow();
         ExcelBuffer_gRecTmp.AddColumn('Posting Date', false, '', true, false, true, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
         ExcelBuffer_gRecTmp.AddColumn('Document Type', false, '', true, false, true, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
         ExcelBuffer_gRecTmp.AddColumn('Document No', false, '', true, false, true, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
@@ -182,61 +270,82 @@ report 50017 "Account Ledger Report Excel"
         FixedAsset_lRec: Record "Fixed Asset";
         Settlement: Record "EDC HIS Settlement Staging";
     begin
-        ExcelBuffer_gRecTmp.NewRow;
-        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."Posting Date", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Date);            //Posting Date
-        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."Document Type", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);           //Document Type
-        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."Document No.", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);            //Document No
+        ExcelBuffer_gRecTmp.NewRow();
+        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."Posting Date", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Date);
+        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."Document Type", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
+        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."Document No.", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
         ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."G/L Account No.", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
+
         "G/L Entry".CalcFields("G/L Account Name");
-        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."G/L Account Name", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);               //Description
+        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."G/L Account Name", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
+
+        // Vendor / source name
         if "G/L Entry"."Source Type" = "G/L Entry"."Source Type"::"Bank Account" then begin
             if BankAcc_lRec.Get("G/L Entry"."Source No.") then
-                ExcelBuffer_gRecTmp.AddColumn(BankAcc_lRec.Name, false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text)                    //Source Name
+                ExcelBuffer_gRecTmp.AddColumn(BankAcc_lRec.Name, false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text)
+            else
+                ExcelBuffer_gRecTmp.AddColumn('', false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
         end else
             if "G/L Entry"."Source Type" = "G/L Entry"."Source Type"::Vendor then begin
                 if Vendor_lRec.Get("G/L Entry"."Source No.") then
-                    ExcelBuffer_gRecTmp.AddColumn(Vendor_lRec.Name, false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text)                     //Source Name
+                    ExcelBuffer_gRecTmp.AddColumn(Vendor_lRec.Name, false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text)
+                else
+                    ExcelBuffer_gRecTmp.AddColumn('', false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
             end else
                 if "G/L Entry"."Source Type" = "G/L Entry"."Source Type"::Customer then begin
                     if Customer_lRec.Get("G/L Entry"."Source No.") then
-                        ExcelBuffer_gRecTmp.AddColumn(Customer_lRec.Name, false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text)                   //Source Name
+                        ExcelBuffer_gRecTmp.AddColumn(Customer_lRec.Name, false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text)
+                    else
+                        ExcelBuffer_gRecTmp.AddColumn('', false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
                 end else
                     if "G/L Entry"."Source Type" = "G/L Entry"."Source Type"::"Fixed Asset" then begin
                         if FixedAsset_lRec.Get("G/L Entry"."Source No.") then
-                            ExcelBuffer_gRecTmp.AddColumn(FixedAsset_lRec.Description, false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text)          //Source Name
+                            ExcelBuffer_gRecTmp.AddColumn(FixedAsset_lRec.Description, false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text)
+                        else
+                            ExcelBuffer_gRecTmp.AddColumn('', false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
                     end else
-                        ExcelBuffer_gRecTmp.AddColumn('', false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);                                    //Source Name
+                        ExcelBuffer_gRecTmp.AddColumn('', false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
+
+        // Payor Name
         Settlement.Reset();
         Settlement.SetRange("Document No.", "G/L Entry"."Document No.");
         if Settlement.FindFirst() then
             ExcelBuffer_gRecTmp.AddColumn(Settlement."Payer Name", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text)
         else
-            ExcelBuffer_gRecTmp.AddColumn('', false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);//
+            ExcelBuffer_gRecTmp.AddColumn('', false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
+
+        // Debit Amount
         if "G/L Entry"."Debit Amount" <> 0 then
-            ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."Debit Amount", false, '', false, false, false, '#,##0.00', ExcelBuffer_gRecTmp."Cell Type"::Number)  //Debit Amount
+            ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."Debit Amount", false, '', false, false, false, '#,##0.00', ExcelBuffer_gRecTmp."Cell Type"::Number)
         else
-            ExcelBuffer_gRecTmp.AddColumn('', false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);                                   //Debit Amount
+            ExcelBuffer_gRecTmp.AddColumn('', false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
 
+        // Credit Amount
         if "G/L Entry"."Credit Amount" <> 0 then
-            ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."Credit Amount", false, '', false, false, false, '#,##0.00', ExcelBuffer_gRecTmp."Cell Type"::Number)  //Credit Amount
+            ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."Credit Amount", false, '', false, false, false, '#,##0.00', ExcelBuffer_gRecTmp."Cell Type"::Number)
         else
-            ExcelBuffer_gRecTmp.AddColumn('', false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);                                    //Credit Amount
-        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."External Document No.", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);   //External Document No.  
+            ExcelBuffer_gRecTmp.AddColumn('', false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
 
-        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."EDC Narration", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text); //Narration
+        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."External Document No.", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
+        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."EDC Narration", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
+
         "G/L Entry".CalcFields("EDC Voucher Narration");
-        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."EDC Voucher Narration", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text); //Voucher Narration
-        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."EDC UTR No.", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);           //Narration
-        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."EDC HIS Document Type", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);       //Line Narration
-        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."Global Dimension 1 Code", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);               //Type
-        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."Global Dimension 2 Code", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);                //Source No.
-        if "G/L Entry"."Global Dimension 2 Code" <> '' then
-            DimValue.Reset();
-        DimValue.SetRange(Code, "G/L Entry"."Global Dimension 2 Code");
-        if DimValue.FindFirst() then
-            DeptName := DimValue.Name;
-        ExcelBuffer_gRecTmp.AddColumn(DeptName, false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);                //Source No.        
+        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."EDC Voucher Narration", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
 
+        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."EDC UTR No.", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
+        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."EDC HIS Document Type", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
+        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."Global Dimension 1 Code", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
+        ExcelBuffer_gRecTmp.AddColumn("G/L Entry"."Global Dimension 2 Code", false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
+
+        Clear(DeptName);
+        if "G/L Entry"."Global Dimension 2 Code" <> '' then begin
+            DimValue.Reset();
+            DimValue.SetRange(Code, "G/L Entry"."Global Dimension 2 Code");
+            if DimValue.FindFirst() then
+                DeptName := DimValue.Name;
+        end;
+
+        ExcelBuffer_gRecTmp.AddColumn(DeptName, false, '', false, false, false, '', ExcelBuffer_gRecTmp."Cell Type"::Text);
     end;
 
     local procedure CreateExcelBook_lFnc()
@@ -246,54 +355,8 @@ report 50017 "Account Ledger Report Excel"
         ExcelBuffer_gRecTmp.CreateNewBook(Text50001_gCtx);
         ExcelBuffer_gRecTmp.WriteSheet(Text50001_gCtx, CompanyName, UserId);
         ExcelBuffer_gRecTmp.CloseBook();
-        ExcelBuffer_gRecTmp.SetFriendlyFilename(StrSubstNo(ExcelFileNameLbl, CurrentDateTime, UserId));
+        ExcelBuffer_gRecTmp.SetFriendlyFilename(
+            StrSubstNo(ExcelFileNameLbl, CurrentDateTime, UserId));
         ExcelBuffer_gRecTmp.OpenExcel();
     end;
-
-
-    procedure CalculateGLBalances(
-        SourceGLEntry: Record "G/L Entry";
-        StartDate: Date;
-        EndDate: Date): Dictionary of [Text, Decimal]
-    var
-        GLEntry: Record "G/L Entry";
-        OpeningBal: Decimal;
-        PeriodBal: Decimal;
-        ClosingBal: Decimal;
-        Result: Dictionary of [Text, Decimal];
-    begin
-        Clear(OpeningBal);
-        Clear(PeriodBal);
-        Clear(ClosingBal);
-        Clear(Result);
-
-        // Opening Balance: entries before the selected Start Date.
-        // Preserve all report filters except the Posting Date filter.
-        GLEntry.CopyFilters(SourceGLEntry);
-        GLEntry.SetRange("Posting Date", 0D, CalcDate('<-1D>', StartDate));
-
-        if GLEntry.FindSet() then
-            repeat
-                OpeningBal += GLEntry.Amount;
-            until GLEntry.Next() = 0;
-
-        // Period Activity: entries within the selected date range.
-        GLEntry.CopyFilters(SourceGLEntry);
-        GLEntry.SetRange("Posting Date", StartDate, EndDate);
-
-        if GLEntry.FindSet() then
-            repeat
-                PeriodBal += GLEntry.Amount;
-            until GLEntry.Next() = 0;
-
-        // Closing Balance = Opening Balance + Period Activity.
-        ClosingBal := OpeningBal + PeriodBal;
-
-        Result.Add('OpeningBalance', OpeningBal);
-        Result.Add('PeriodBalance', PeriodBal);
-        Result.Add('ClosingBalance', ClosingBal);
-
-        exit(Result);
-    end;
-
 }
